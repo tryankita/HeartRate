@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPG Heart Rate Monitor</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Newsreader:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <div class="noise"></div>
+    
+    <div class="card">
+        <h1 class="title">Heart Rate</h1>
+        
+        <div class="bpm-container" id="pulseIndicator">
+            <div class="bpm-display">
+                <span id="bpmValue">--</span>
+            </div>
+            <span class="unit">BPM</span>
+        </div>
+
+        <div class="viewfinder">
+            
+            <video id="video" autoplay playsinline muted></video>
+            
+            <canvas id="canvas" width="60" height="60"></canvas>
+        </div>
+        <button id="startBtn">Start Reading</button>
+    </div>
+
+    <script></script>
+</body>
+</html>
