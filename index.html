@@ -8,25 +8,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Newsreader:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 
-<link rel=""manifest" href="manifest.json">
-<meta name="theme-color" content="#faf8f4">
-
-<div class="hrv-display" style="margin-top: 10px; font-size: 0.85rem; color: rgba(45, 42, 38, 0.6);">
-    HRV (RMSSD): <span id="hrvValue" style="color: #2d2a26; font-weight: 600;">--</span> ms
-</div>
-
-<button id="exportCsvBtn" class="secondary-btn" style="margin-left: 10px;">Export CSV</button>
-
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js');
-        });
-    }
-</script>"
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#faf8f4">
 </head>
 <body>
-    
+    <div id="desktopWarning" class="desktop-warning hidden">
+        Desktop device detected. Camera sensor data will not yield accurate biological heart rate readings. A mobile device rear camera is required.
+    </div>
+
     <div class="noise"></div>
     
     <div class="card">
@@ -37,17 +26,37 @@
                 <span id="bpmValue">--</span>
             </div>
             <span class="unit">BPM</span>
+            <div class="hrv-display" style="margin-top: 10px; font-size: 0.85rem; color: rgba(45, 42, 38, 0.6);">
+                HRV (RMSSD): <span id="hrvValue" style="color: #2d2a26; font-weight: 600;">--</span> ms
+            </div>
         </div>
 
         <div class="viewfinder">
-            
             <video id="video" autoplay playsinline muted></video>
-            
             <canvas id="canvas" width="60" height="60"></canvas>
         </div>
+        
         <button id="startBtn">Start Reading</button>
+        
+        <div class="history-section">
+            <h3 class="title">Reading History</h3>
+            <canvas id="chartCanvas" width="340" height="150"></canvas>
+            <button id="clearHistoryBtn" class="secondary-btn">Clear History</button>
+            <button id="exportCsvBtn" class="secondary-btn" style="margin-left: 10px;">Export CSV</button>
+        </div>
+        
+        <p class="ios-warning" style="margin-top: 20px;">
+            <strong>iOS Note:</strong> Safari may restrict flashlight access. If the flashlight doesn't turn on, ensure you are in a well-lit room and cover the rear camera completely with your fingertip.
+        </p>
     </div>
 
-    <script></script>
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed:', err));
+            });
+        }
+    </script>
 </body>
 </html>

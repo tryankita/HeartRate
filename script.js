@@ -1,9 +1,23 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (!isMobile) {
+        const warning = document.getElementById('desktopWarning');
+        if (warning) warning.classList.add('visible');
+    }
+    drawChart();
+});
+
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const bpmValue = document.getElementById('bpmValue');
+const hrvValue = document.getElementById('hrvValue');
 const pulseIndicator = document.getElementById('pulseIndicator');
+const chartCanvas = document.getElementById('chartCanvas');
+const chartCtx = chartCanvas.getContext('2d');
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
 
 let isReading = false;
 let animationId = null;
@@ -22,9 +36,37 @@ startBtn.addEventListener('click', () => {
     }
 });
 
+clearHistoryBtn.addEventListener('click', () => {
+    localStorage.removeItem('heartRateHistory');
+    drawChart();
+});
+
+exportCsvBtn.addEventListener('click', () => {
+    const history = JSON.parse(localStorage.getItem('heartRateHistory') || '[]');
+    if (history.length === 0) {
+        alert('No data to export.');
+        return;
+    }
+    
+    let csvContent = "data:text/csv;charset=utf-8,Date,Time,BPM\n";
+    history.forEach(entry => {
+        const dateObj = new Date(entry.timestamp);
+        const dateStr = dateObj.toLocaleDateString();
+        const timeStr = dateObj.toLocaleTimeString();
+        csvContent += `${dateStr},${timeStr},${entry.bpm}\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "heart_rate_data.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
+
 async function startReading() {
     try {
-        
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: 'environment',
@@ -44,13 +86,14 @@ async function startReading() {
                 });
             }
         } catch (e) {
-            console.warn("Torch API not supported or blocked (e.g., iOS Safari).", e);
+            console.warn("Torch API not supported or blocked.", e);
         }
 
         video.play();
         isReading = true;
         startBtn.textContent = 'Stop Reading';
         bpmValue.textContent = '...';
+        if (hrvValue) hrvValue.textContent = '--';
         
         setTimeout(() => {
             processFrame();
@@ -63,15 +106,22 @@ async function startReading() {
 }
 
 function stopReading() {
-    bpmHistory.length = 0;
     isReading = false;
     startBtn.textContent = 'Start Reading';
     if (animationId) cancelAnimationFrame(animationId);
     if (track) track.stop();
     video.srcObject = null;
+    
+    if (bpmHistory.length > 0) {
+        const sessionAverage = Math.round(bpmHistory.reduce((a, b) => a + b, 0) / bpmHistory.length);
+        saveBpmToHistory(sessionAverage);
+    }
+    
     bpmValue.textContent = '--';
+    if (hrvValue) hrvValue.textContent = '--';
     redValues.length = 0;
     times.length = 0;
+    bpmHistory.length = 0;
 }
 
 function processFrame() {
@@ -103,6 +153,7 @@ function processFrame() {
 function calculateBPM() {
     if (redValues.length < 50) return; 
 
+    // Apply a Simple Moving Average (SMA) filter to remove high-frequency camera noise
     const filterWindow = 4;
     let smoothed = [];
     for (let i = 0; i < redValues.length; i++) {
@@ -122,12 +173,13 @@ function calculateBPM() {
     
     if (amplitude < 1.5) {
         bpmValue.textContent = '--';
+        if (hrvValue) hrvValue.textContent = '--';
         bpmHistory.length = 0; 
         return;
     }
 
     let peaks = [];
-    const minInterBe   atInterval = 300; 
+    const minInterBeatInterval = 300; 
 
     for (let i = 1; i < smoothed.length - 1; i++) {
         const val = smoothed[i];
@@ -140,16 +192,15 @@ function calculateBPM() {
     }
 
     if (peaks.length > 2) {
-        let intervalsSum = 0;
+        let rrIntervals = [];
         for (let i = 1; i < peaks.length; i++) {
-            intervalsSum += (peaks[i].time - peaks[i - 1].time);
+            rrIntervals.push(peaks[i].time - peaks[i - 1].time);
         }
         
-        let avgInterval = intervalsSum / (peaks.length - 1);
+        let avgInterval = rrIntervals.reduce((a, b) => a + b, 0) / rrIntervals.length;
         let currentBpm = Math.round(60000 / avgInterval);
         
         if (currentBpm > 40 && currentBpm < 200) {
-            
             pulseIndicator.classList.remove('beat');
             void pulseIndicator.offsetWidth; 
             pulseIndicator.classList.add('beat');
@@ -160,43 +211,21 @@ function calculateBPM() {
             let stableBpm = Math.round(bpmHistory.reduce((a, b) => a + b, 0) / bpmHistory.length);
             bpmValue.textContent = stableBpm;
         }
+
+        // Calculate HRV using RMSSD (Root Mean Square of Successive Differences)
+        if (rrIntervals.length > 1) {
+            let sumOfSquaredDifferences = 0;
+            for (let i = 1; i < rrIntervals.length; i++) {
+                let diff = rrIntervals[i] - rrIntervals[i - 1];
+                sumOfSquaredDifferences += (diff * diff);
+            }
+            let rmssd = Math.sqrt(sumOfSquaredDifferences / (rrIntervals.length - 1));
+            
+            if (rmssd > 0 && rmssd < 200) {
+                if (hrvValue) hrvValue.textContent = Math.round(rmssd);
+            }
+        }
     }
-}
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (!isMobile) {
-        document.getElementById('desktopWarning').classList.add('visible');
-    }
-    drawChart();
-});
-
-const chartCanvas = document.getElementById('chartCanvas');
-const chartCtx = chartCanvas.getContext('2d');
-const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-
-clearHistoryBtn.addEventListener('click', () => {
-    localStorage.removeItem('heartRateHistory');
-    drawChart();
-});
-
-function stopReading() {
-    isReading = false;
-    startBtn.textContent = 'Start Reading';
-    if (animationId) cancelAnimationFrame(animationId);
-    if (track) track.stop();
-    video.srcObject = null;
-    
-    if (bpmHistory.length > 0) {
-        const sessionAverage = Math.round(bpmHistory.reduce((a, b) => a + b, 0) / bpmHistory.length);
-        saveBpmToHistory(sessionAverage);
-    }
-    
-    bpmValue.textContent = '--';
-    redValues.length = 0;
-    times.length = 0;
-    bpmHistory.length = 0;
 }
 
 function saveBpmToHistory(bpm) {
@@ -252,6 +281,7 @@ function drawChart() {
     
     chartCtx.stroke();
 
+    // Draw data points
     history.forEach((dataPoint, index) => {
         const x = padding + (index / Math.max(history.length - 1, 1)) * graphWidth;
         const y = height - padding - ((dataPoint.bpm - minBpm) / range) * graphHeight;
@@ -271,70 +301,4 @@ function drawChart() {
             chartCtx.fillText(`${dataPoint.bpm} bpm`, x, y - 10);
         }
     });
-}
-
-const hrvValue = document.getElementById('hrvValue');
-const exportCsvBtn = document.getElementById('exportCsvBtn');
-
-if (hrvValue) hrvValue.textContent = '--';
-
-exportCsvBtn.addEventListener('click', () => {
-    const history = JSON.parse(localStorage.getItem('heartRateHistory') || '[]');
-    if (history.length === 0) {
-        alert('No data to export.');
-        return;
-    }
-    
-    let csvContent = "data:text/csv;charset=utf-8,do {
-        
-    } while (ate,Time,BPM\n";
-    history.forEach(entry => {
-        const dateObj = new Date(entry.timestamp);
-        const dateStr = dateObj.toLocaleDateString();
-        const timeStr = dateObj.toLocaleTimeString();
-        csvContent += `${dateStr},${timeStr},${entry.bpm}\n`;
-    });
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "heart_rate_data.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-});
-
-if (peaks.length > 2) {
-    let rrIntervals = [];
-    for (let i = 1; i < peaks.length; i++) {
-        rrIntervals.push(peaks[i].time - peaks[i - 1].time);
-    }
-    
-    let avgInterval = rrIntervals.reduce((a, b) => a + b, 0) / rrIntervals.length;
-    let currentBpm = Math.round(60000 / avgInterval);
-    
-    if (currentBpm > 40 && currentBpm < 200) {
-        pulseIndicator.classList.remove('beat');
-        void pulseIndicator.offsetWidth; 
-        pulseIndicator.classList.add('beat');
-
-        bpmHistory.push(currentBpm);
-        if (bpmHistory.length > 5) bpmHistory.shift(); 
-        
-        let stableBpm = Math.round(bpmHistory.reduce((a, b) => a + b, 0) /);
-        bpmValue.textContent = stableBpm;
-    }
-
-    if (rrIntervals.length > 1) {
-        let sumOfSquaredDifferences = 0;
-        for (let i = 1; i < rrIntervals.length; i++) {
-            let diff = rrIntervals[i] - rrIntervals[i - 1];
-            sumOfSquaredDifferences += (diff * diff);
-        }
-        let rmssd = Math.sqrt(sumOfSquaredDifferences / (rrIntervals.length - 1));
-        
-        if (rmssd > 0 && rmssd < 200) {
-            hrvValue.textContent = Math.round(rmssd);
-        }
-    }
 }
