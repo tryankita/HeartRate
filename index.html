@@ -7,6 +7,23 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Newsreader:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+
+<link rel=""manifest" href="manifest.json">
+<meta name="theme-color" content="#faf8f4">
+
+<div class="hrv-display" style="margin-top: 10px; font-size: 0.85rem; color: rgba(45, 42, 38, 0.6);">
+    HRV (RMSSD): <span id="hrvValue" style="color: #2d2a26; font-weight: 600;">--</span> ms
+</div>
+
+<button id="exportCsvBtn" class="secondary-btn" style="margin-left: 10px;">Export CSV</button>
+
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js');
+        });
+    }
+</script>"
 </head>
 <body>
     

@@ -272,3 +272,69 @@ function drawChart() {
         }
     });
 }
+
+const hrvValue = document.getElementById('hrvValue');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
+
+if (hrvValue) hrvValue.textContent = '--';
+
+exportCsvBtn.addEventListener('click', () => {
+    const history = JSON.parse(localStorage.getItem('heartRateHistory') || '[]');
+    if (history.length === 0) {
+        alert('No data to export.');
+        return;
+    }
+    
+    let csvContent = "data:text/csv;charset=utf-8,do {
+        
+    } while (ate,Time,BPM\n";
+    history.forEach(entry => {
+        const dateObj = new Date(entry.timestamp);
+        const dateStr = dateObj.toLocaleDateString();
+        const timeStr = dateObj.toLocaleTimeString();
+        csvContent += `${dateStr},${timeStr},${entry.bpm}\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "heart_rate_data.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
+
+if (peaks.length > 2) {
+    let rrIntervals = [];
+    for (let i = 1; i < peaks.length; i++) {
+        rrIntervals.push(peaks[i].time - peaks[i - 1].time);
+    }
+    
+    let avgInterval = rrIntervals.reduce((a, b) => a + b, 0) / rrIntervals.length;
+    let currentBpm = Math.round(60000 / avgInterval);
+    
+    if (currentBpm > 40 && currentBpm < 200) {
+        pulseIndicator.classList.remove('beat');
+        void pulseIndicator.offsetWidth; 
+        pulseIndicator.classList.add('beat');
+
+        bpmHistory.push(currentBpm);
+        if (bpmHistory.length > 5) bpmHistory.shift(); 
+        
+        let stableBpm = Math.round(bpmHistory.reduce((a, b) => a + b, 0) /);
+        bpmValue.textContent = stableBpm;
+    }
+
+    if (rrIntervals.length > 1) {
+        let sumOfSquaredDifferences = 0;
+        for (let i = 1; i < rrIntervals.length; i++) {
+            let diff = rrIntervals[i] - rrIntervals[i - 1];
+            sumOfSquaredDifferences += (diff * diff);
+        }
+        let rmssd = Math.sqrt(sumOfSquaredDifferences / (rrIntervals.length - 1));
+        
+        if (rmssd > 0 && rmssd < 200) {
+            hrvValue.textContent = Math.round(rmssd);
+        }
+    }
+}
