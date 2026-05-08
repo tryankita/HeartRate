@@ -1,9 +1,24 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if device is desktop
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (!isMobile) {
-        const warning = document.getElementById('desktopWarning');
-        if (warning) warning.classList.add('visible');
+    
+    // Modal Logic
+    const modal = document.getElementById('desktopModal');
+    const closeBtn = document.getElementById('closeModalBtn');
+    
+    if (!isMobile && modal) {
+        // slight delay to allow the aesthetic backdrop blur to fade in elegantly
+        setTimeout(() => {
+            modal.classList.add('show');
+        }, 100);
     }
+    
+    if (closeBtn && modal) {
+        closeBtn.addEventListener('click', () => {
+            modal.classList.remove('show');
+        });
+    }
+    
     drawChart();
 });
 
@@ -22,11 +37,15 @@ const exportCsvBtn = document.getElementById('exportCsvBtn');
 let isReading = false;
 let animationId = null;
 let track = null;
+let readingTimer = null; // Auto-stop timer
 
 const redValues = [];
 const times = [];
 const maxValuesToStore = 150; 
 const bpmHistory = [];
+let lastProcessedPeakTime = 0;
+let sessionBpmSum = 0;
+let sessionBpmCount = 0;
 
 startBtn.addEventListener('click', () => {
     if (isReading) {
@@ -67,6 +86,10 @@ exportCsvBtn.addEventListener('click', () => {
 
 async function startReading() {
     try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Camera API not available. This usually means you are not using HTTPS.");
+        }
+        
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: 'environment',
@@ -97,11 +120,19 @@ async function startReading() {
         
         setTimeout(() => {
             processFrame();
+            
+            // Automatically stop reading after 1 minute (60,000 ms)
+            readingTimer = setTimeout(() => {
+                if (isReading) {
+                    stopReading();
+                    alert("1 minute reading completed. Data saved!");
+                }
+            }, 60000);
         }, 1000);
 
     } catch (err) {
         console.error("Camera access denied or unavailable: ", err);
-        alert("Please grant camera permissions to use the Heart Rate Monitor.");
+        alert(err.message === "Camera API not available. This usually means you are not using HTTPS." ? err.message : "Please grant camera permissions to use the Heart Rate Monitor.");
     }
 }
 
@@ -111,17 +142,23 @@ function stopReading() {
     if (animationId) cancelAnimationFrame(animationId);
     if (track) track.stop();
     video.srcObject = null;
+    if (readingTimer) clearTimeout(readingTimer);
     
-    if (bpmHistory.length > 0) {
-        const sessionAverage = Math.round(bpmHistory.reduce((a, b) => a + b, 0) / bpmHistory.length);
+    if (sessionBpmCount > 0) {
+        const sessionAverage = Math.round(sessionBpmSum / sessionBpmCount);
         saveBpmToHistory(sessionAverage);
+        bpmValue.textContent = sessionAverage; // Show final stable result
+    } else {
+        bpmValue.textContent = '--';
+        if (hrvValue) hrvValue.textContent = '--';
     }
     
-    bpmValue.textContent = '--';
-    if (hrvValue) hrvValue.textContent = '--';
     redValues.length = 0;
     times.length = 0;
     bpmHistory.length = 0;
+    lastProcessedPeakTime = 0;
+    sessionBpmSum = 0;
+    sessionBpmCount = 0;
 }
 
 function processFrame() {
@@ -192,11 +229,16 @@ function calculateBPM() {
     }
 
     if (peaks.length > 2) {
+        let lastPeakTime = peaks[peaks.length - 1].time;
+        if (lastProcessedPeakTime === lastPeakTime) return; // Wait for a new real heartbeat
+        lastProcessedPeakTime = lastPeakTime;
+
         let rrIntervals = [];
         for (let i = 1; i < peaks.length; i++) {
             rrIntervals.push(peaks[i].time - peaks[i - 1].time);
         }
         
+        // Calculate the current immediate BPM from recent beat intervals
         let avgInterval = rrIntervals.reduce((a, b) => a + b, 0) / rrIntervals.length;
         let currentBpm = Math.round(60000 / avgInterval);
         
@@ -206,23 +248,35 @@ function calculateBPM() {
             pulseIndicator.classList.add('beat');
 
             bpmHistory.push(currentBpm);
-            if (bpmHistory.length > 5) bpmHistory.shift(); 
             
-            let stableBpm = Math.round(bpmHistory.reduce((a, b) => a + b, 0) / bpmHistory.length);
-            bpmValue.textContent = stableBpm;
-        }
+            // Allow 8 new distinct heart beats to stabilize before displaying
+            if (bpmHistory.length >= 8) {
+                // Keep the last 15 distinct heartbeats for a steady rolling average
+                if (bpmHistory.length > 15) bpmHistory.shift(); 
+                
+                let steadyBpm = Math.round(bpmHistory.reduce((a, b) => a + b, 0) / bpmHistory.length);
+                bpmValue.textContent = steadyBpm;
+                
+                // Add to our full 1-minute session sum to get the true average on completion
+                sessionBpmSum += steadyBpm;
+                sessionBpmCount++;
 
-        // Calculate HRV using RMSSD (Root Mean Square of Successive Differences)
-        if (rrIntervals.length > 1) {
-            let sumOfSquaredDifferences = 0;
-            for (let i = 1; i < rrIntervals.length; i++) {
-                let diff = rrIntervals[i] - rrIntervals[i - 1];
-                sumOfSquaredDifferences += (diff * diff);
-            }
-            let rmssd = Math.sqrt(sumOfSquaredDifferences / (rrIntervals.length - 1));
-            
-            if (rmssd > 0 && rmssd < 200) {
-                if (hrvValue) hrvValue.textContent = Math.round(rmssd);
+                // Calculate HRV using RMSSD (Root Mean Square of Successive Differences)
+                if (rrIntervals.length > 1) {
+                    let sumOfSquaredDifferences = 0;
+                    for (let i = 1; i < rrIntervals.length; i++) {
+                        let diff = rrIntervals[i] - rrIntervals[i - 1];
+                        sumOfSquaredDifferences += (diff * diff);
+                    }
+                    let rmssd = Math.sqrt(sumOfSquaredDifferences / (rrIntervals.length - 1));
+                    
+                    if (rmssd > 0 && rmssd < 200) {
+                        if (hrvValue) hrvValue.textContent = Math.round(rmssd);
+                    }
+                }
+            } else {
+                // Display a "loading" state while stabilizing
+                bpmValue.textContent = '...';
             }
         }
     }
@@ -264,7 +318,7 @@ function drawChart() {
     const range = maxBpm - minBpm || 1;
 
     chartCtx.beginPath();
-    chartCtx.strokeStyle = '#b8815c';
+    chartCtx.strokeStyle = '#d96c4a'; // updated to new accent color
     chartCtx.lineWidth = 2;
     chartCtx.lineJoin = 'round';
 
@@ -291,11 +345,11 @@ function drawChart() {
         chartCtx.fillStyle = '#ffffff';
         chartCtx.fill();
         chartCtx.lineWidth = 2;
-        chartCtx.strokeStyle = '#b8815c';
+        chartCtx.strokeStyle = '#d96c4a'; // updated to new accent color
         chartCtx.stroke();
         
         if (index === history.length - 1 || index === 0) {
-            chartCtx.fillStyle = '#2d2a26';
+            chartCtx.fillStyle = '#2c2b29'; // updated to new text color
             chartCtx.font = '10px Inter';
             chartCtx.textAlign = index === 0 ? 'left' : 'right';
             chartCtx.fillText(`${dataPoint.bpm} bpm`, x, y - 10);

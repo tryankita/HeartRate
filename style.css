@@ -1,8 +1,10 @@
 :root {
-    --bg-color: #faf8f4;
-    --text-color: #2d2a26;
-    --accent-color: #b8815c;
-    --card-bg: #ffffff;
+    --bg-gradient: radial-gradient(circle at top center, #fefefd 0%, #f4f0eb 100%);
+    --card-bg: rgba(255, 255, 255, 0.95);
+    --text-main: #2c2b29;
+    --text-muted: #73706a;
+    --accent-color: #d96c4a;
+    --border-color: rgba(44, 43, 41, 0.08);
 }
 
 * {
@@ -12,112 +14,103 @@
 }
 
 body {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    font-family: 'Inter', sans-serif;
+    background: var(--bg-gradient);
+    color: var(--text-main);
+    font-family: 'Inter', -apple-system, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    position: relative;
-    overflow: auto; /* changed from hidden to auto to allow scrolling if needed */
-    padding: 40px 0;
+    padding: 40px 20px;
+    -webkit-font-smoothing: antialiased;
 }
 
-.noise {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    pointer-events: none;
-    z-index: 50;
-    opacity: 0.4;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-}
-
+/* --- Main App Card --- */
 .card {
     background: var(--card-bg);
-    max-width: 400px;
-    width: 90%;
-    padding: 40px 30px;
-    border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(45, 42, 38, 0.05),
-                0 1px 3px rgba(45, 42, 38, 0.02);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    max-width: 380px;
+    width: 100%;
+    padding: 45px 35px;
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.06), 
+                0 0 0 1px var(--border-color);
     text-align: center;
     position: relative;
     z-index: 2;
-    border: 1px solid rgba(45, 42, 38, 0.05);
-}
-
-.desktop-warning {
-    display: none;
-    background-color: #fdf3f2;
-    color: #b33939;
-    padding: 12px;
-    text-align: center;
-    font-size: 0.85rem;
-    width: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 100;
-    border-bottom: 1px solid rgba(179, 57, 57, 0.2);
-}
-
-.desktop-warning.visible {
-    display: block;
 }
 
 .title {
-    font-size: 0.9rem;
+    font-family: 'Newsreader', serif;
+    font-size: 1.3rem;
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: rgba(45, 42, 38, 0.6);
-    margin-bottom: 30px;
+    color: var(--text-muted);
+    letter-spacing: -0.01em;
+    margin-bottom: 25px;
 }
 
+/* --- BPM Display --- */
 .bpm-container {
-    margin: 30px 0;
-}
-
-@keyframes heartbeat {
-    0% { transform: scale(1); }
-    15% { transform: scale(1.08); }
-    30% { transform: scale(1); }
-    45% { transform: scale(1.04); }
-    70% { transform: scale(1); }
-}
-
-.bpm-container.beat {
-    animation: heartbeat 0.7s ease-out;
+    margin: 20px 0 35px;
+    position: relative;
 }
 
 .bpm-display {
     font-family: 'Newsreader', serif;
-    font-size: 5rem;
-    font-weight: 600;
-    line-height: 1;
-    color: var(--text-color);
+    font-size: 6rem;
+    font-weight: 500;
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    color: var(--text-main);
+    transition: color 0.3s ease;
 }
 
 .unit {
-    display: block;
-    font-size: 1rem;
+    display: inline-block;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: var(--accent-color);
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+.hrv-display {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.hrv-display span {
+    color: var(--text-main);
     font-weight: 500;
-    margin-top: 5px;
+}
+
+/* Heartbeat Animation */
+@keyframes naturalBeat {
+    0% { transform: scale(1); }
+    15% { transform: scale(1.05); }
+    30% { transform: scale(1); }
+    45% { transform: scale(1.02); }
+    70% { transform: scale(1); }
+}
+
+.bpm-container.beat .bpm-display {
+    animation: naturalBeat 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+    color: var(--accent-color);
 }
 
 .viewfinder {
-    width: 60px;
-    height: 60px;
-    margin: 0 auto 30px;
-    border-radius: 12px;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 35px;
+    border-radius: 16px;
     overflow: hidden;
-    background: #eae5de;
-    border: 2px solid rgba(45, 42, 38, 0.1);
+    background: #eae6e0;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 
+                0 0 0 1px var(--border-color);
     position: relative;
 }
 
@@ -125,74 +118,151 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transform: scale(1.1);
 }
 
 #canvas {
     display: none;
 }
 
-button {
-    background-color: var(--text-color);
-    color: var(--bg-color);
+/* --- Buttons --- */
+.primary-btn {
+    background-color: var(--text-main);
+    color: #fff;
     font-family: 'Inter', sans-serif;
     font-size: 1rem;
     font-weight: 500;
     border: none;
-    padding: 14px 28px;
-    border-radius: 30px;
+    padding: 16px 24px;
+    border-radius: 14px;
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.2s;
     width: 100%;
     margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(44, 43, 41, 0.15);
+    transition: all 0.2s ease;
 }
 
-button:hover {
-    background-color: var(--accent-color);
+.primary-btn:hover {
+    background-color: #42403d;
     transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(44, 43, 41, 0.2);
 }
 
-button:active {
+.primary-btn:active {
     transform: translateY(1px);
+    box-shadow: 0 2px 8px rgba(44, 43, 41, 0.15);
 }
 
 .secondary-btn {
     background-color: transparent;
-    color: var(--text-color);
-    border: 1px solid rgba(45, 42, 38, 0.3);
-    width: auto;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
     padding: 8px 16px;
     font-size: 0.85rem;
-    border-radius: 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .secondary-btn:hover {
-    background-color: rgba(45, 42, 38, 0.05);
-    color: var(--text-color);
+    background-color: rgba(0,0,0,0.03);
+    color: var(--text-main);
 }
 
+/* --- History Section --- */
 .history-section {
-    margin-top: 30px;
+    margin-top: 40px;
     padding-top: 30px;
-    border-top: 1px solid rgba(45, 42, 38, 0.1);
+    border-top: 1px solid var(--border-color);
     text-align: left;
 }
 
 .history-section .title {
-    margin-bottom: 15px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin-bottom: 20px;
 }
 
 #chartCanvas {
     width: 100%;
-    height: 150px;
-    background-color: var(--bg-color);
-    border-radius: 8px;
-    border: 1px solid rgba(45, 42, 38, 0.1);
+    height: 140px;
+    background-color: transparent;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+/* --- Modal Overlay --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(244, 240, 235, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    padding: 20px;
+}
+
+.modal-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background: #fff;
+    padding: 40px 30px;
+    border-radius: 20px;
+    max-width: 340px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1), 
+                0 0 0 1px var(--border-color);
+    transform: translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.modal-overlay.show .modal-card {
+    transform: translateY(0);
+}
+
+.modal-icon {
+    font-size: 2.5rem;
     margin-bottom: 15px;
 }
 
+.modal-title {
+    font-family: 'Newsreader', serif;
+    font-size: 1.5rem;
+    font-weight: 500;
+    margin-bottom: 12px;
+    color: var(--text-main);
+}
+
+.modal-text {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
 .ios-warning {
-    font-size: 0.75rem;
-    line-height: 1.5;
-    color: rgba(45, 42, 38, 0.5);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    background: rgba(0,0,0,0.02);
+    padding: 15px;
+    border-radius: 12px;
+    margin-top: 25px;
     text-align: left;
 }

@@ -3,21 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PPG Heart Rate Monitor</title>
+    <title>Heart Rate</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Newsreader:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#faf8f4">
+    <meta name="theme-color" content="#fefefd">
 </head>
 <body>
-    <div id="desktopWarning" class="desktop-warning hidden">
-        Desktop device detected. Camera sensor data will not yield accurate biological heart rate readings. A mobile device rear camera is required.
-    </div>
-
-    <div class="noise"></div>
-    
     <div class="card">
         <h1 class="title">Heart Rate</h1>
         
@@ -26,8 +20,8 @@
                 <span id="bpmValue">--</span>
             </div>
             <span class="unit">BPM</span>
-            <div class="hrv-display" style="margin-top: 10px; font-size: 0.85rem; color: rgba(45, 42, 38, 0.6);">
-                HRV (RMSSD): <span id="hrvValue" style="color: #2d2a26; font-weight: 600;">--</span> ms
+            <div class="hrv-display">
+                HRV (RMSSD): <span id="hrvValue">--</span> ms
             </div>
         </div>
 
@@ -36,18 +30,31 @@
             <canvas id="canvas" width="60" height="60"></canvas>
         </div>
         
-        <button id="startBtn">Start Reading</button>
+        <button id="startBtn" class="primary-btn">Start Reading</button>
         
         <div class="history-section">
             <h3 class="title">Reading History</h3>
-            <canvas id="chartCanvas" width="340" height="150"></canvas>
-            <button id="clearHistoryBtn" class="secondary-btn">Clear History</button>
-            <button id="exportCsvBtn" class="secondary-btn" style="margin-left: 10px;">Export CSV</button>
+            <canvas id="chartCanvas" width="340" height="140"></canvas>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="clearHistoryBtn" class="secondary-btn">Clear History</button>
+                <button id="exportCsvBtn" class="secondary-btn">Export CSV</button>
+            </div>
         </div>
         
-        <p class="ios-warning" style="margin-top: 20px;">
-            <strong>iOS Note:</strong> Safari may restrict flashlight access. If the flashlight doesn't turn on, ensure you are in a well-lit room and cover the rear camera completely with your fingertip.
+        <p class="ios-warning">
+            May not work on iOS due to flashlight permissions.
         </p>
+    </div>
+
+    <!-- Beautiful Desktop Warning Modal -->
+    <div id="desktopModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-icon">👋</div>
+            <h2 class="modal-title">Desktop Detected</h2>
+            <p class="modal-text">Camera sensors on monitors cannot capture the micro-color changes in your finger necessary for PPG readings.</p>
+            <p class="modal-text" style="margin-bottom: 25px;">Please open this app on a mobile device to use the rear camera and get an accurate biological reading.</p>
+            <button id="closeModalBtn" class="primary-btn">I Understand</button>
+        </div>
     </div>
 
     <script src="script.js"></script>
