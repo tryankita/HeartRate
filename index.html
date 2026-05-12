@@ -2,66 +2,46 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Heart Rate</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#fefefd">
+    <meta name="theme-color" content="#121212">
 </head>
 <body>
-    <div class="card">
-        <h1 class="title">Heart Rate</h1>
-        
-        <div class="bpm-container" id="pulseIndicator">
-            <div class="bpm-display">
-                <span id="bpmValue">--</span>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="offscreenCanvas" width="60" height="60"></canvas>
+    
+    <div id="uiContainer">
+        <div id="progressCard" class="hidden">
+            <div class="progress-text">
+                <div class="progress-title">Measuring your heart rate.</div>
+                <div class="progress-subtitle">Hold still...</div>
             </div>
-            <span class="unit">BPM</span>
-            <div class="hrv-display">
-                HRV (RMSSD): <span id="hrvValue">--</span> ms
+            <div class="progress-circle-container">
+                <svg class="progress-ring" width="50" height="50">
+                    <circle class="progress-ring-circle bg" stroke="rgba(255,255,255,0.1)" stroke-width="4" fill="transparent" r="22" cx="25" cy="25"/>
+                    <circle id="progressRing" class="progress-ring-circle fg" stroke="#8ab4f8" stroke-width="4" fill="transparent" r="22" cx="25" cy="25"/>
+                </svg>
+                <div id="progressText">0%</div>
             </div>
         </div>
 
-        <div class="viewfinder">
-            <video id="video" autoplay playsinline muted></video>
-            <canvas id="canvas" width="60" height="60"></canvas>
+        <div id="measurementArea" class="hidden">
+            <div id="pulseCircle"></div>
+            <canvas id="waveformCanvas" width="300" height="100"></canvas>
+            <div id="bpmValueDisplay">-- bpm</div>
         </div>
         
-        <button id="startBtn" class="primary-btn">Start Reading</button>
-        
-        <div class="history-section">
-            <h3 class="title">Reading History</h3>
-            <canvas id="chartCanvas" width="340" height="140"></canvas>
-            <div style="display: flex; gap: 10px; justify-content: center;">
-                <button id="clearHistoryBtn" class="secondary-btn">Clear History</button>
-                <button id="exportCsvBtn" class="secondary-btn">Export CSV</button>
-            </div>
-        </div>
-        
-        <p class="ios-warning">
-            May not work on iOS due to flashlight permissions.
-        </p>
-    </div>
-
-    <!-- Beautiful Desktop Warning Modal -->
-    <div id="desktopModal" class="modal-overlay">
-        <div class="modal-card">
-            <div class="modal-icon">👋</div>
-            <h2 class="modal-title">Desktop Detected</h2>
-            <p class="modal-text">Camera sensors on monitors cannot capture the micro-color changes in your finger necessary for PPG readings.</p>
-            <p class="modal-text" style="margin-bottom: 25px;">Please open this app on a mobile device to use the rear camera and get an accurate biological reading.</p>
-            <button id="closeModalBtn" class="primary-btn">I Understand</button>
-        </div>
+        <button id="startBtn">Start</button>
     </div>
 
     <script src="script.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed:', err));
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
             });
         }
     </script>

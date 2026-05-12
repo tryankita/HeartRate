@@ -1,268 +1,164 @@
-:root {
-    --bg-gradient: radial-gradient(circle at top center, #fefefd 0%, #f4f0eb 100%);
-    --card-bg: rgba(255, 255, 255, 0.95);
-    --text-main: #2c2b29;
-    --text-muted: #73706a;
-    --accent-color: #d96c4a;
-    --border-color: rgba(44, 43, 41, 0.08);
-}
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
+* { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-    background: var(--bg-gradient);
-    color: var(--text-main);
-    font-family: 'Inter', -apple-system, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 40px 20px;
-    -webkit-font-smoothing: antialiased;
-}
-
-/* --- Main App Card --- */
-.card {
-    background: var(--card-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    max-width: 380px;
-    width: 100%;
-    padding: 45px 35px;
-    border-radius: 24px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.06), 
-                0 0 0 1px var(--border-color);
-    text-align: center;
-    position: relative;
-    z-index: 2;
-}
-
-.title {
-    font-family: 'Newsreader', serif;
-    font-size: 1.3rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    letter-spacing: -0.01em;
-    margin-bottom: 25px;
-}
-
-/* --- BPM Display --- */
-.bpm-container {
-    margin: 20px 0 35px;
-    position: relative;
-}
-
-.bpm-display {
-    font-family: 'Newsreader', serif;
-    font-size: 6rem;
-    font-weight: 500;
-    line-height: 0.9;
-    letter-spacing: -0.03em;
-    color: var(--text-main);
-    transition: color 0.3s ease;
-}
-
-.unit {
-    display: inline-block;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--accent-color);
-    font-weight: 600;
-    margin-top: 10px;
-}
-
-.hrv-display {
-    margin-top: 12px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    font-weight: 400;
-}
-
-.hrv-display span {
-    color: var(--text-main);
-    font-weight: 500;
-}
-
-/* Heartbeat Animation */
-@keyframes naturalBeat {
-    0% { transform: scale(1); }
-    15% { transform: scale(1.05); }
-    30% { transform: scale(1); }
-    45% { transform: scale(1.02); }
-    70% { transform: scale(1); }
-}
-
-.bpm-container.beat .bpm-display {
-    animation: naturalBeat 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
-    color: var(--accent-color);
-}
-
-.viewfinder {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 35px;
-    border-radius: 16px;
+    background-color: #121212;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
     overflow: hidden;
-    background: #eae6e0;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 
-                0 0 0 1px var(--border-color);
-    position: relative;
+    height: 100dvh; /* Use dvh to account for mobile browser UI */
+    width: 100vw;
 }
 
 #video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scale(1.1);
-}
-
-#canvas {
-    display: none;
-}
-
-/* --- Buttons --- */
-.primary-btn {
-    background-color: var(--text-main);
-    color: #fff;
-    font-family: 'Inter', sans-serif;
-    font-size: 1rem;
-    font-weight: 500;
-    border: none;
-    padding: 16px 24px;
-    border-radius: 14px;
-    cursor: pointer;
-    width: 100%;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 12px rgba(44, 43, 41, 0.15);
-    transition: all 0.2s ease;
-}
-
-.primary-btn:hover {
-    background-color: #42403d;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(44, 43, 41, 0.2);
-}
-
-.primary-btn:active {
-    transform: translateY(1px);
-    box-shadow: 0 2px 8px rgba(44, 43, 41, 0.15);
-}
-
-.secondary-btn {
-    background-color: transparent;
-    color: var(--text-muted);
-    border: 1px solid var(--border-color);
-    padding: 8px 16px;
-    font-size: 0.85rem;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.secondary-btn:hover {
-    background-color: rgba(0,0,0,0.03);
-    color: var(--text-main);
-}
-
-/* --- History Section --- */
-.history-section {
-    margin-top: 40px;
-    padding-top: 30px;
-    border-top: 1px solid var(--border-color);
-    text-align: left;
-}
-
-.history-section .title {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    margin-bottom: 20px;
-}
-
-#chartCanvas {
-    width: 100%;
-    height: 140px;
-    background-color: transparent;
-    border-radius: 12px;
-    margin-bottom: 20px;
-}
-
-/* --- Modal Overlay --- */
-.modal-overlay {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100vw;
-    height: 100vh;
-    background: rgba(244, 240, 235, 0.8);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    z-index: 1000;
+    height: 100dvh;
+    object-fit: cover;
+    z-index: 1;
+    transform: scale(1.05); /* hide edges */
+}
+
+#offscreenCanvas {
+    display: none;
+}
+
+#uiContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: 2;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    background: rgba(18, 18, 18, 0.3); /* Transparent so video is visible */
+    transition: background 0.4s ease;
+}
+
+/* When the finger covers the camera, we let the red camera feedback show */
+#uiContainer.finger-on {
+    background: rgba(220, 0, 0, 0.2);
+    box-shadow: inset 0 0 150px rgba(255,0,0,0.5);
+}
+
+/* Progress Card at Top */
+#progressCard {
+    margin-top: 60px;
+    background: #333333;
+    border-radius: 8px;
+    padding: 20px 25px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+#progressCard.hidden {
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
-    padding: 20px;
 }
 
-.modal-overlay.show {
-    opacity: 1;
-    pointer-events: auto;
+.progress-text {
+    flex: 1;
 }
-
-.modal-card {
-    background: #fff;
-    padding: 40px 30px;
-    border-radius: 20px;
-    max-width: 340px;
-    width: 100%;
-    text-align: center;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.1), 
-                0 0 0 1px var(--border-color);
-    transform: translateY(20px);
-    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.modal-overlay.show .modal-card {
-    transform: translateY(0);
-}
-
-.modal-icon {
-    font-size: 2.5rem;
-    margin-bottom: 15px;
-}
-
-.modal-title {
-    font-family: 'Newsreader', serif;
-    font-size: 1.5rem;
+.progress-title {
+    font-size: 1rem;
     font-weight: 500;
-    margin-bottom: 12px;
-    color: var(--text-main);
+    margin-bottom: 4px;
+}
+.progress-subtitle {
+    font-size: 0.9rem;
+    color: #aaaaaa;
 }
 
-.modal-text {
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: var(--text-muted);
-    margin-bottom: 12px;
+.progress-circle-container {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    margin-left: 20px;
+}
+.progress-ring {
+    transform: rotate(-90deg);
+}
+.progress-ring-circle.fg {
+    stroke-dasharray: 138; /* 2 * pi * 22 ~= 138 */
+    stroke-dashoffset: 138;
+    transition: stroke-dashoffset 0.2s linear;
+}
+#progressText {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
-.ios-warning {
-    font-size: 0.8rem;
-    line-height: 1.6;
-    color: var(--text-muted);
-    background: rgba(0,0,0,0.02);
-    padding: 15px;
-    border-radius: 12px;
-    margin-top: 25px;
-    text-align: left;
+/* Measurement bottom area */
+#measurementArea {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 50px;
+    width: 100%;
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+#measurementArea.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#pulseCircle {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    margin-bottom: 40px;
+    transition: transform 0.1s, background 0.1s;
+}
+#pulseCircle.beat {
+    transform: scale(1.15);
+    background: rgba(255, 255, 255, 0.7);
+}
+
+#waveformCanvas {
+    width: 100%;
+    max-width: 400px;
+    height: 100px;
+    margin-bottom: 20px;
+}
+
+#bpmValueDisplay {
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+#startBtn {
+    position: absolute;
+    bottom: max(60px, env(safe-area-inset-bottom, 60px));
+    background: #8ab4f8;
+    color: #121212;
+    border: none;
+    padding: 15px 40px;
+    border-radius: 30px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(138, 180, 248, 0.4);
+    z-index: 10;
+}
+#startBtn.hidden {
+    display: none;
 }

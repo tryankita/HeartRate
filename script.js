@@ -1,101 +1,42 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // Check if device is desktop
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    // Modal Logic
-    const modal = document.getElementById('desktopModal');
-    const closeBtn = document.getElementById('closeModalBtn');
-    
-    if (!isMobile && modal) {
-        // slight delay to allow the aesthetic backdrop blur to fade in elegantly
-        setTimeout(() => {
-            modal.classList.add('show');
-        }, 100);
-    }
-    
-    if (closeBtn && modal) {
-        closeBtn.addEventListener('click', () => {
-            modal.classList.remove('show');
-        });
-    }
-    
-    drawChart();
-});
-
 const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById('offscreenCanvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const uiContainer = document.getElementById('uiContainer');
+const progressCard = document.getElementById('progressCard');
+const measurementArea = document.getElementById('measurementArea');
+const progressRing = document.getElementById('progressRing');
+const progressText = document.getElementById('progressText');
+const pulseCircle = document.getElementById('pulseCircle');
+const waveformCanvas = document.getElementById('waveformCanvas');
+const waveformCtx = waveformCanvas.getContext('2d');
+const bpmValueDisplay = document.getElementById('bpmValueDisplay');
 const startBtn = document.getElementById('startBtn');
-const bpmValue = document.getElementById('bpmValue');
-const hrvValue = document.getElementById('hrvValue');
-const pulseIndicator = document.getElementById('pulseIndicator');
-const chartCanvas = document.getElementById('chartCanvas');
-const chartCtx = chartCanvas.getContext('2d');
-const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-const exportCsvBtn = document.getElementById('exportCsvBtn');
 
 let isReading = false;
 let animationId = null;
 let track = null;
-let readingTimer = null; // Auto-stop timer
 
-const redValues = [];
-const times = [];
-const maxValuesToStore = 150; 
-const bpmHistory = [];
-let lastProcessedPeakTime = 0;
-let sessionBpmSum = 0;
-let sessionBpmCount = 0;
+// robust signal metrics
+const rawSignal = [];
+const timestamps = [];
+const historyWindow = 200; // frames
+const fps = 30;
 
-startBtn.addEventListener('click', () => {
-    if (isReading) {
-        stopReading();
-    } else {
-        startReading();
-    }
-});
+let bpmRollingBuffer = [];
+let progress = 0; // 0 to 100
+const maxDuration = 30000; // 30 seconds measurement
+let accumulatedTime = 0;
+let lastFrameTime = 0;
+let fingerOffFrames = 0;
 
-clearHistoryBtn.addEventListener('click', () => {
-    localStorage.removeItem('heartRateHistory');
-    drawChart();
-});
-
-exportCsvBtn.addEventListener('click', () => {
-    const history = JSON.parse(localStorage.getItem('heartRateHistory') || '[]');
-    if (history.length === 0) {
-        alert('No data to export.');
-        return;
-    }
-    
-    let csvContent = "data:text/csv;charset=utf-8,Date,Time,BPM\n";
-    history.forEach(entry => {
-        const dateObj = new Date(entry.timestamp);
-        const dateStr = dateObj.toLocaleDateString();
-        const timeStr = dateObj.toLocaleTimeString();
-        csvContent += `${dateStr},${timeStr},${entry.bpm}\n`;
-    });
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "heart_rate_data.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-});
-
-async function startReading() {
+startBtn.addEventListener('click', async () => {
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error("Camera API not available. This usually means you are not using HTTPS.");
+            throw new Error("Camera API not available. Ensure HTTPS.");
         }
         
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: 'environment',
-                width: { ideal: 60 },
-                height: { ideal: 60 }
-            }
+            video: { facingMode: 'environment', width: { ideal: 120 }, height: { ideal: 120 } }
         });
 
         video.srcObject = stream;
@@ -104,255 +45,252 @@ async function startReading() {
         try {
             const capabilities = track.getCapabilities();
             if (capabilities.torch) {
-                await track.applyConstraints({
-                    advanced: [{ torch: true }]
-                });
+                await track.applyConstraints({ advanced: [{ torch: true }] });
             }
         } catch (e) {
-            console.warn("Torch API not supported or blocked.", e);
+            console.warn("Torch not supported/blocked.", e);
         }
 
         video.play();
         isReading = true;
-        startBtn.textContent = 'Stop Reading';
-        bpmValue.textContent = '...';
-        if (hrvValue) hrvValue.textContent = '--';
+        
+        // UI prep
+        startBtn.classList.add('hidden');
+        progressCard.classList.remove('hidden');
+        measurementArea.classList.remove('hidden');
+        bpmRollingBuffer = [];
+        rawSignal.length = 0;
+        timestamps.length = 0;
+        progress = 0;
+        updateProgressUI(0);
+        bpmValueDisplay.textContent = "-- bpm";
+        uiContainer.classList.remove('finger-on');
         
         setTimeout(() => {
+            lastFrameTime = performance.now();
+            accumulatedTime = 0;
             processFrame();
-            
-            // Automatically stop reading after 1 minute (60,000 ms)
-            readingTimer = setTimeout(() => {
-                if (isReading) {
-                    stopReading();
-                    alert("1 minute reading completed. Data saved!");
-                }
-            }, 60000);
         }, 1000);
 
     } catch (err) {
-        console.error("Camera access denied or unavailable: ", err);
-        alert(err.message === "Camera API not available. This usually means you are not using HTTPS." ? err.message : "Please grant camera permissions to use the Heart Rate Monitor.");
+        console.error(err);
+        alert(err.message === "Camera API not available. Ensure HTTPS." ? err.message : "Please grant camera permissions.");
     }
-}
+});
 
 function stopReading() {
     isReading = false;
-    startBtn.textContent = 'Start Reading';
+    startBtn.classList.remove('hidden');
+    startBtn.textContent = 'Restart';
+    progressCard.classList.add('hidden');
+    uiContainer.classList.remove('finger-on');
+    
     if (animationId) cancelAnimationFrame(animationId);
     if (track) track.stop();
     video.srcObject = null;
-    if (readingTimer) clearTimeout(readingTimer);
-    
-    if (sessionBpmCount > 0) {
-        const sessionAverage = Math.round(sessionBpmSum / sessionBpmCount);
-        saveBpmToHistory(sessionAverage);
-        bpmValue.textContent = sessionAverage; // Show final stable result
-    } else {
-        bpmValue.textContent = '--';
-        if (hrvValue) hrvValue.textContent = '--';
-    }
-    
-    redValues.length = 0;
-    times.length = 0;
-    bpmHistory.length = 0;
-    lastProcessedPeakTime = 0;
-    sessionBpmSum = 0;
-    sessionBpmCount = 0;
 }
 
 function processFrame() {
     if (!isReading) return;
 
+    const timeNow = performance.now();
+    const deltaTime = timeNow - lastFrameTime;
+    lastFrameTime = timeNow;
+
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
     const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let redSum = 0;
     
-    for (let i = 0; i < frame.data.length; i += 4) {
-        redSum += frame.data[i];     
+    let redSum = 0;
+    let greenSum = 0;
+
+    // subsample pixels for speed
+    for (let i = 0; i < frame.data.length; i += 16) {
+        redSum += frame.data[i];
+        greenSum += frame.data[i+1];
     }
-    const redAverage = redSum / (frame.data.length / 4);
+    
+    const count = frame.data.length / 16;
+    const avgR = redSum / count;
+    const avgG = greenSum / count;
 
-    redValues.push(redAverage);
-    times.push(performance.now());
+    // Signal extraction standard: finger over camera saturates red
+    // Red gives volume, but green often gives sharper AC pulses if light penetrates
+    // Combining them or just using Red depending on saturation. Using average.
+    const signal = (avgR + avgG) / 2;
 
-    if (redValues.length > maxValuesToStore) {
-        redValues.shift();
-        times.shift();
+    // Detect if finger covers lens (Red dominates)
+    const currentFingerOn = (avgR > 80 && avgR > avgG * 1.1);
+
+    if (currentFingerOn) {
+        fingerOffFrames = 0;
+    } else {
+        fingerOffFrames++;
     }
 
-    calculateBPM();
+    // Debounce the removal so micro-adjustments don't flash a flatline
+    const isFingerOnCamera = (fingerOffFrames < 15);
+
+    // Always log data so we have a continuous history window
+    rawSignal.push(signal);
+    timestamps.push(timeNow);
+    if (rawSignal.length > historyWindow) {
+        rawSignal.shift();
+        timestamps.shift();
+    }
+
+    if (isFingerOnCamera) {
+        uiContainer.classList.add('finger-on');
+        
+        accumulatedTime += deltaTime;
+        calculateBPM();
+        drawWaveform(false);
+
+        // Update progress
+        progress = Math.min(100, Math.floor((accumulatedTime / maxDuration) * 100));
+        updateProgressUI(progress);
+
+        if (progress >= 100) {
+            stopReading();
+            return;
+        }
+    } else {
+        uiContainer.classList.remove('finger-on');
+        // Do not accumulate time, clear buffer
+        bpmRollingBuffer = []; 
+        drawWaveform(true); // Draw flatline
+    }
 
     animationId = requestAnimationFrame(processFrame);
 }
 
+// ----------------------------------------------------
+// Robust Processing Algorithm (Google Fit style)
+// ----------------------------------------------------
 function calculateBPM() {
-    if (redValues.length < 50) return; 
+    if (rawSignal.length < 60) return; // Need ~2 seconds of min data
 
-    // Apply a Simple Moving Average (SMA) filter to remove high-frequency camera noise
-    const filterWindow = 4;
+    // 1. Smoothing (Moving Average)
+    const windowSm = 5;
     let smoothed = [];
-    for (let i = 0; i < redValues.length; i++) {
+    for (let i = windowSm; i < rawSignal.length - windowSm; i++) {
         let sum = 0;
-        let count = 0;
-        for (let j = Math.max(0, i - filterWindow); j <= Math.min(redValues.length - 1, i + filterWindow); j++) {
-            sum += redValues[j];
-            count++;
-        }
-        smoothed.push(sum / count);
+        for (let j = -windowSm; j <= windowSm; j++) sum += rawSignal[i + j];
+        smoothed.push(sum / (2 * windowSm + 1));
     }
 
-    const mean = smoothed.reduce((a, b) => a + b, 0) / smoothed.length;
-    const min = Math.min(...smoothed);
-    const max = Math.max(...smoothed);
-    const amplitude = max - min;
-    
-    if (amplitude < 1.5) {
-        bpmValue.textContent = '--';
-        if (hrvValue) hrvValue.textContent = '--';
-        bpmHistory.length = 0; 
-        return;
+    // 2. Detrending (Remove DC wander)
+    const windowTr = 15;
+    let detrended = [];
+    for (let i = windowTr; i < smoothed.length - windowTr; i++) {
+        let trendSum = 0;
+        for (let j = -windowTr; j <= windowTr; j++) trendSum += smoothed[i + j];
+        const trend = trendSum / (2 * windowTr + 1);
+        // Multiply detrended signal to amplify the tiny AC component
+        detrended.push((smoothed[i] - trend) * -1); // Inverting so volume push = peak
     }
 
+    // 3. Peak Detection with Dynamic Threshold
+    const minDistance = 350; // max ~170 BPM
     let peaks = [];
-    const minInterBeatInterval = 300; 
+    let lastPeakTime = 0;
+    
+    // offset because of filtering loss
+    const offset = windowSm + windowTr;
 
-    for (let i = 1; i < smoothed.length - 1; i++) {
-        const val = smoothed[i];
-        
-        if (val > smoothed[i - 1] && val > smoothed[i + 1] && val > mean + (amplitude * 0.1)) {
-            if (peaks.length === 0 || (times[i] - peaks[peaks.length - 1].time) > minInterBeatInterval) {
-                peaks.push({ time: times[i], value: val });
-            }
-        }
+    // dynamic threshold
+    let threshold = 0;
+    if (detrended.length > 0) {
+        const sorted = [...detrended].sort((a,b)=>a-b);
+        // top 20% intensity
+        threshold = sorted[Math.floor(sorted.length * 0.8)] * 0.5;
     }
 
-    if (peaks.length > 2) {
-        let lastPeakTime = peaks[peaks.length - 1].time;
-        if (lastProcessedPeakTime === lastPeakTime) return; // Wait for a new real heartbeat
-        lastProcessedPeakTime = lastPeakTime;
+    for (let i = 1; i < detrended.length - 1; i++) {
+        const prev = detrended[i - 1];
+        const curr = detrended[i];
+        const next = detrended[i + 1];
 
-        let rrIntervals = [];
-        for (let i = 1; i < peaks.length; i++) {
-            rrIntervals.push(peaks[i].time - peaks[i - 1].time);
-        }
-        
-        // Calculate the current immediate BPM from recent beat intervals
-        let avgInterval = rrIntervals.reduce((a, b) => a + b, 0) / rrIntervals.length;
-        let currentBpm = Math.round(60000 / avgInterval);
-        
-        if (currentBpm > 40 && currentBpm < 200) {
-            pulseIndicator.classList.remove('beat');
-            void pulseIndicator.offsetWidth; 
-            pulseIndicator.classList.add('beat');
-
-            bpmHistory.push(currentBpm);
-            
-            // Allow 8 new distinct heart beats to stabilize before displaying
-            if (bpmHistory.length >= 8) {
-                // Keep the last 15 distinct heartbeats for a steady rolling average
-                if (bpmHistory.length > 15) bpmHistory.shift(); 
+        if (curr > prev && curr > next && curr > threshold) {
+            const time = timestamps[i + offset];
+            if (time - lastPeakTime > minDistance) {
+                peaks.push({ val: curr, time: time });
+                lastPeakTime = time;
                 
-                let steadyBpm = Math.round(bpmHistory.reduce((a, b) => a + b, 0) / bpmHistory.length);
-                bpmValue.textContent = steadyBpm;
-                
-                // Add to our full 1-minute session sum to get the true average on completion
-                sessionBpmSum += steadyBpm;
-                sessionBpmCount++;
-
-                // Calculate HRV using RMSSD (Root Mean Square of Successive Differences)
-                if (rrIntervals.length > 1) {
-                    let sumOfSquaredDifferences = 0;
-                    for (let i = 1; i < rrIntervals.length; i++) {
-                        let diff = rrIntervals[i] - rrIntervals[i - 1];
-                        sumOfSquaredDifferences += (diff * diff);
-                    }
-                    let rmssd = Math.sqrt(sumOfSquaredDifferences / (rrIntervals.length - 1));
-                    
-                    if (rmssd > 0 && rmssd < 200) {
-                        if (hrvValue) hrvValue.textContent = Math.round(rmssd);
-                    }
+                // Animate circle on peak if it's the very latest one
+                if (i > detrended.length - 10) {
+                    pulseCircle.classList.add('beat');
+                    setTimeout(() => pulseCircle.classList.remove('beat'), 100);
                 }
-            } else {
-                // Display a "loading" state while stabilizing
-                bpmValue.textContent = '...';
             }
         }
     }
-}
 
-function saveBpmToHistory(bpm) {
-    let history = JSON.parse(localStorage.getItem('heartRateHistory') || '[]');
-    history.push({ bpm: bpm, timestamp: Date.now() });
-    
-    if (history.length > 20) {
-        history = history.slice(history.length - 20);
+    // 4. Calculate BPM
+    if (peaks.length < 3) return;
+
+    let intervals = [];
+    for (let i = 1; i < peaks.length; i++) {
+        intervals.push(peaks[i].time - peaks[i - 1].time);
     }
+
+    // Reject outliers in intervals (extrasystoles or noise)
+    const avgInt = intervals.reduce((a,b)=>a+b)/intervals.length;
+    intervals = intervals.filter(int => Math.abs(int - avgInt) < avgInt * 0.3);
     
-    localStorage.setItem('heartRateHistory', JSON.stringify(history));
-    drawChart();
+    if (intervals.length < 2) return;
+
+    const filteredAvgInt = intervals.reduce((a,b)=>a+b)/intervals.length;
+    let bpm = Math.round(60000 / filteredAvgInt);
+
+    if (bpm > 40 && bpm < 200) {
+        bpmRollingBuffer.push(bpm);
+        if (bpmRollingBuffer.length > 10) bpmRollingBuffer.shift();
+        
+        let steadyBpm = Math.round(bpmRollingBuffer.reduce((a,b)=>a+b)/bpmRollingBuffer.length);
+        bpmValueDisplay.textContent = `${steadyBpm} bpm`;
+    }
 }
 
-function drawChart() {
-    const history = JSON.parse(localStorage.getItem('heartRateHistory') || '[]');
-    const width = chartCanvas.width;
-    const height = chartCanvas.height;
-    
-    chartCtx.clearRect(0, 0, width, height);
-    
-    if (history.length === 0) {
-        chartCtx.fillStyle = 'rgba(45, 42, 38, 0.4)';
-        chartCtx.font = '12px Inter';
-        chartCtx.textAlign = 'center';
-        chartCtx.fillText('No history available', width / 2, height / 2);
+function updateProgressUI(pct) {
+    progressText.textContent = `${pct}%`;
+    const offset = 138 - (pct / 100) * 138;
+    progressRing.style.strokeDashoffset = offset;
+}
+
+function drawWaveform(flat = false) {
+    waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+    waveformCtx.beginPath();
+    waveformCtx.strokeStyle = "#fff";
+    waveformCtx.lineWidth = 2;
+    waveformCtx.lineJoin = "round";
+
+    if (flat || rawSignal.length < 30) {
+        waveformCtx.moveTo(0, waveformCanvas.height / 2);
+        waveformCtx.lineTo(waveformCanvas.width, waveformCanvas.height / 2);
+        waveformCtx.stroke();
         return;
     }
 
-    const padding = 20;
-    const graphWidth = width - padding * 2;
-    const graphHeight = height - padding * 2;
-    
-    const maxBpm = Math.max(...history.map(d => d.bpm), 120);
-    const minBpm = Math.min(...history.map(d => d.bpm), 60);
-    const range = maxBpm - minBpm || 1;
+    // Detrend just for display visuals
+    let displaySignal = [];
+    const w = 5;
+    for (let i = w; i < rawSignal.length - w; i++) {
+        let trend = 0;
+        for (let j = -w; j <= w; j++) trend += rawSignal[i + j];
+        displaySignal.push(rawSignal[i] - (trend / (2*w+1)));
+    }
 
-    chartCtx.beginPath();
-    chartCtx.strokeStyle = '#d96c4a'; // updated to new accent color
-    chartCtx.lineWidth = 2;
-    chartCtx.lineJoin = 'round';
+    const min = Math.min(...displaySignal);
+    const max = Math.max(...displaySignal);
+    const range = (max - min) || 1;
 
-    history.forEach((dataPoint, index) => {
-        const x = padding + (index / Math.max(history.length - 1, 1)) * graphWidth;
-        const y = height - padding - ((dataPoint.bpm - minBpm) / range) * graphHeight;
+    for (let i = 0; i < displaySignal.length; i++) {
+        const x = (i / displaySignal.length) * waveformCanvas.width;
+        // Normalize and scale to canvas height, inverted
+        const y = waveformCanvas.height - ((displaySignal[i] - min) / range) * (waveformCanvas.height * 0.8) - (waveformCanvas.height * 0.1);
         
-        if (index === 0) {
-            chartCtx.moveTo(x, y);
-        } else {
-            chartCtx.lineTo(x, y);
-        }
-    });
-    
-    chartCtx.stroke();
-
-    // Draw data points
-    history.forEach((dataPoint, index) => {
-        const x = padding + (index / Math.max(history.length - 1, 1)) * graphWidth;
-        const y = height - padding - ((dataPoint.bpm - minBpm) / range) * graphHeight;
-        
-        chartCtx.beginPath();
-        chartCtx.arc(x, y, 4, 0, Math.PI * 2);
-        chartCtx.fillStyle = '#ffffff';
-        chartCtx.fill();
-        chartCtx.lineWidth = 2;
-        chartCtx.strokeStyle = '#d96c4a'; // updated to new accent color
-        chartCtx.stroke();
-        
-        if (index === history.length - 1 || index === 0) {
-            chartCtx.fillStyle = '#2c2b29'; // updated to new text color
-            chartCtx.font = '10px Inter';
-            chartCtx.textAlign = index === 0 ? 'left' : 'right';
-            chartCtx.fillText(`${dataPoint.bpm} bpm`, x, y - 10);
-        }
-    });
+        if (i === 0) waveformCtx.moveTo(x, y);
+        else waveformCtx.lineTo(x, y);
+    }
+    waveformCtx.stroke();
 }
