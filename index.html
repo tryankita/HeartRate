@@ -1,49 +1,262 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang=""en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Heart Rate</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <title>Vital Signs Monitor</title>
+    <meta name="description"
+        content="Measure your heart rate and breathing rate">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#121212">
+    <meta name="theme-color" content="#0a0a0f">
 </head>
+
 <body>
     <video id="video" autoplay playsinline muted></video>
     <canvas id="offscreenCanvas" width="60" height="60"></canvas>
-    
-    <div id="uiContainer">
-        <div id="progressCard" class="hidden">
-            <div class="progress-text">
-                <div class="progress-title">Measuring your heart rate.</div>
-                <div class="progress-subtitle">Hold still...</div>
-            </div>
-            <div class="progress-circle-container">
-                <svg class="progress-ring" width="50" height="50">
-                    <circle class="progress-ring-circle bg" stroke="rgba(255,255,255,0.1)" stroke-width="4" fill="transparent" r="22" cx="25" cy="25"/>
-                    <circle id="progressRing" class="progress-ring-circle fg" stroke="#8ab4f8" stroke-width="4" fill="transparent" r="22" cx="25" cy="25"/>
-                </svg>
-                <div id="progressText">0%</div>
+
+    <div id="app">
+        <div id="ambientGlow"></div>
+        <div id="idleState" class="state active">
+            <div class="idle-content">
+                <div class="mode-tabs">
+                    <button class="mode-tab active" id="tabHeart" data-mode="heart">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                fill="currentColor" />
+                        </svg>
+                        Heart Rate
+                    </button>
+                    <button class="mode-tab" id="tabBreath" data-mode="breath">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
+                                fill="currentColor" />
+                        </svg>
+                        Breathing
+                    </button>
+                </div>
+
+                <div id="heartIdleContent" class="mode-content active">
+                    <div class="heart-icon-large">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                fill="url(#heartGrad)" />
+                            <defs>
+                                <linearGradient id=""heartGrad" x1="2" y1="3" x2="22" y2="21">
+                                    <stop offset="0%" stop-color="#ff6b6b" />
+                                    <stop offset="100%" stop-color="#ee5a24" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h1 class="idle-title">Heart Rate</h1>
+                    <p class="idle-subtitle">Place your finger over the rear camera<br>and flashlight to begin</p>
+                    <button id="startBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                fill="currentColor" />
+                        </svg>
+                        Start Measurement
+                    </button>
+                </div>
+
+                <div id="breathIdleContent" class="mode-content">
+                    <div class="breath-icon-large">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="9" stroke="url(#breathGrad)" stroke-width="1.5" fill="none" />
+                            <circle cx="12" cy="12" r="5" stroke="url(#breathGrad)" stroke-width="1.5" fill="none"
+                                opacity="0.6" />
+                            <circle cx="12" cy="12" r="1.5" fill="url(#breathGrad)" />
+                            <defs>
+                                <linearGradient id="breathGrad" x1="3" y1="3" x2="21" y2="21">
+                                    <stop offset="0%" stop-color="#5b9aff" />
+                                    <stop offset="100%" stop-color="#7c3aed" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h1 class="idle-title breath-title">Breathing Rate</h1>
+                    <p class="idle-subtitle">Position your face and upper chest<br>in the front camera view</p>
+                    <button id="startBreathBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
+                                fill="currentColor" />
+                        </svg>
+                        Start Breathing Scan
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div id="measurementArea" class="hidden">
-            <div id="pulseCircle"></div>
-            <canvas id="waveformCanvas" width="300" height="100"></canvas>
-            <div id="bpmValueDisplay">-- bpm</div>
+        <div id="measuringState" class="state">
+            <div id="statusBar">
+                <div id="statusIndicator">
+                    <div id="statusDot"></div>
+                    <span id="statusText">Waiting for finger...</span>
+                </div>
+                <div id="timerDisplay">0:00</div>
+            </div>
+
+        <div id="heartContainer">
+                <div id="pulseRing1" class="pulse-ring"></div>
+                <div id="pulseRing2" class="pulse-ring"></div>
+                <div id="heartBeat">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                            fill="url(#heartGrad2)" />
+                        <defs>
+                            <linearGradient id="heartGrad2" x1="2" y1="3" x2="22" y2="21">
+                                <stop offset="0%" stop-color="#ff6b6b" />
+                                <stop offset="100%" stop-color="#ee5a24" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+            </div>
+
+            <div id="bpmDisplay">
+                <div id="bpmNumber">--</div>
+                <div id="bpmLabel">BPM</div>
+            </div>
+
+            <div id="signalQuality">
+                <div id="qualityBars">
+                    <div class="q-bar" id="qb1"></div>
+                    <div class="q-bar" id="qb2"></div>
+                    <div class="q-bar" id="qb3"></div>
+                    <div class="q-bar" id="qb4"></div>
+                    <div class="q-bar" id="qb5"></div>
+                </div>
+                <span id="qualityText">Signal Quality</span>
+            </div>
+
+            <div id="waveformContainer">
+                <canvas id="waveformCanvas"></canvas>
+            </div>
+
+            <div id="progressBar">
+                <div id="progressFill"></div>
+            </div>
+            <div id="progressLabel">
+                <span id="progressPct">0%</span>
+                <span id="progressHint">Signal stabilizes in ~25s</span>
+            </div>
+
+            <button id="cancelBtn">Cancel</button>
         </div>
-        
-        <button id="startBtn">Start</button>
+
+        <div id="breathMeasuringState" class="state">
+            <div id="breathStatusBar" class="breath-status-bar">
+                <div class="breath-status-indicator">
+                    <div id="breathStatusDot" class="detecting"></div>
+                    <span id="breathStatusText">Initializing camera...</span>
+                </div>
+                <div id="breathTimerDisplay">0:00</div>
+            </div>
+
+            <div id="breathVideoContainer">
+                <video id="breathVideo" autoplay playsinline muted></video>
+                <div id="breathOverlay">
+                  <div id="faceGuide">
+                        <svg viewBox="0 0 200 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <ellipse cx="100" cy="100" rx="70" ry="90" stroke="rgba(91,154,255,0.4)" stroke-width="2"
+                                stroke-dasharray="8 6" />
+                            <line x1="30" y1="200" x2="170" y2="200" stroke="rgba(91,154,255,0.2)" stroke-width="1"
+                                stroke-dasharray="4 4" />
+                            <line x1="30" y1="230" x2="170" y2="230" stroke="rgba(91,154,255,0.15)" stroke-width="1"
+                                stroke-dasharray="4 4" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div id="breathLiveData">
+                <div class="breath-metric">
+                    <div id="breathRateNumber" class="breath-rate-number">--</div>
+                    <div class="breath-rate-label">breaths/min</div>
+                </div>
+                <div class="breath-metric secondary">
+                    <div id="breathHrNumber" class="breath-hr-number">--</div>
+                    <div class="breath-hr-label">heart rate</div>
+                </div>
+            </div>
+
+            <div id="breathProgress">
+                <div id="breathProgressFill"></div>
+            </div>
+            <div id="breathProgressLabel">
+                <span id="breathProgressPct">0%</span>
+                <span id="breathProgressHint">Breathe normally, stay still</span>
+            </div>
+
+            <button id="cancelBreathBtn">Cancel</button>
+        </div>
+
+        <div id="completeState" class="state">
+            <div class="complete-content">
+                <div class="complete-check">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="url(#checkGrad)" stroke-width="2" />
+                        <path d="M8 12l2.5 2.5L16 9" stroke="url(#checkGrad)" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <defs>
+                            <linearGradient id="checkGrad" x1="4" y1="4" x2="20" y2="20">
+                                <stop offset="0%" stop-color="#4ade80" />
+                                <stop offset="100%" stop-color="#22c55e" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div id="completeLabel" class="complete-label">Your Heart Rate</div>
+                <div id="finalBpm" class="complete-bpm">--</div>
+                <div id="completeUnit" class="complete-bpm-unit">BPM</div>
+
+                <div id="confidenceBadge" class="confidence-badge">
+                    <span id="confidenceIcon">●</span>
+                    <span id="confidenceText">High Confidence</span>
+                </div>
+
+                <div class="complete-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">Duration</span>
+                        <span id="finalDuration" class="meta-value">30s</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label" id="metaRangeLabel">Range</span>
+                        <span id="finalRange" class="meta-value">--</span>
+                    </div>
+                </div>
+
+                <button id="restartBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M1 4v6h6M23 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Measure Again
+                </button>
+            </div>
+        </div>
     </div>
 
-    <script src="script.js"></script>
+    <script></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(() => {});
+                navigator.serviceWorker.register('./sw.js').catch(() => { });
             });
         }
     </script>
 </body>
-</html>
+
+</html>"
