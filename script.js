@@ -588,6 +588,7 @@ async function startBreathMeasurement() {
         breathEls.breathStatusText.textContent = 'Initializing camera...';
         breathEls.breathTimerDisplay.textContent = '0:00';
         lastBreathResult = null;
+        breathVitalsEventCount = 0;
 
         setStateAll('breathMeasuring');
         breathStartTime = performance.now();
@@ -600,7 +601,7 @@ async function startBreathMeasurement() {
 
             vlInstance = new VitalLens({
                 method: 'vitallens',
-                apiKey: VITALLENS_KEY
+                apiKey: '4FWSfXkKWD5vAudERWnPM7rsFgwrecLp5Vq3Luuz'
             });
 
             vlInstance.addEventListener('vitals', (result) => {
@@ -644,20 +645,43 @@ async function startBreathMeasurement() {
     }
 }
 
+let breathVitalsEventCount = 0;
+
 function updateBreathDisplay(result) {
     if (!result) return;
 
-    const vitals = result.vital_signs || result.vitals || result;
-    const rr = vitals.respiratory_rate || vitals.respiratoryRate;
-    const hr = vitals.heart_rate || vitals.heartRate;
+    breathVitalsEventCount++;
+    console.log(`VitalLens event #${breathVitalsEventCount}:`, JSON.stringify(result, null, 2));
 
-    if (rr && (rr.value !== undefined && rr.value !== null)) {
-        breathEls.breathRateNumber.textContent = Math.round(rr.value);
-        breathEls.breathStatusDot.className = 'locked';
-        breathEls.breathStatusText.textContent = 'Tracking breathing...';
+    const vitals = result.vitals || result.vital_signs;
+
+    // Check if vitals object is empty (API still accumulating data)
+    if (!vitals || Object.keys(vitals).length === 0) {
+        console.log(`Event #${breathVitalsEventCount}: vitals empty, still accumulating data...`);
+        breathEls.breathStatusDot.className = 'detecting';
+        breathEls.breathStatusText.textContent = 'Gathering data... stay still';
+        return;
     }
-    if (hr && (hr.value !== undefined && hr.value !== null)) {
-        breathEls.breathHrNumber.textContent = Math.round(hr.value);
+
+    // Per VitalLens docs: heart_rate IS heart rate, respiratory_rate IS respiratory rate
+    const hr = vitals.heart_rate || vitals.heartRate;
+    const rr = vitals.respiratory_rate || vitals.respiratoryRate;
+
+    console.log(`Event #${breathVitalsEventCount} — HR:`, hr, 'RR:', rr);
+
+    if (rr && rr.value !== undefined && rr.value !== null) {
+        const rrVal = Math.round(rr.value);
+        const rrConf = rr.confidence || 0;
+        breathEls.breathRateNumber.textContent = rrVal;
+        breathEls.breathStatusDot.className = 'locked';
+        breathEls.breathStatusText.textContent = `Tracking (conf: ${(rrConf * 100).toFixed(0)}%)`;
+        console.log(`  → Breath rate: ${rrVal} breaths/min (confidence: ${rrConf})`);
+    }
+
+    if (hr && hr.value !== undefined && hr.value !== null) {
+        const hrVal = Math.round(hr.value);
+        breathEls.breathHrNumber.textContent = hrVal;
+        console.log(`  → Heart rate: ${hrVal} bpm (confidence: ${hr.confidence || 0})`);
     }
 }
 
@@ -717,8 +741,8 @@ function finishBreathMeasurement() {
 
     const badge = els.confidenceBadge;
     badge.className = 'confidence-badge';
-    const conf = lastBreathResult?.vital_signs?.respiratory_rate?.confidence ||
-        lastBreathResult?.vitals?.respiratoryRate?.confidence || 0;
+    const conf = lastBreathResult?.vitals?.respiratory_rate?.confidence ||
+        lastBreathResult?.vital_signs?.respiratory_rate?.confidence || 0;
     if (conf > 0.7 || rrVal > 0) {
         els.confidenceText.textContent = rrVal ? 'Scan Complete' : 'Low Signal';
         if (!rrVal) badge.classList.add('low');
